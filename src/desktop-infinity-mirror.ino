@@ -24,12 +24,29 @@
 #include <math.h>
 #include <neopixel.h>
 
-// Define LED strip parameters
-#define PIXEL_PIN D0
-#define PIXEL_COUNT 44
+// SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_MODE(AUTOMATIC);
 
-// Particle use 12bit ADCs. If you wish to port to a different platform you might need to redefine the ADC precision eg: 1023 for Arduino UNO
-#define ADC_PREC 4095
+
+/*******************************************************************************
+ * Hardware Definitions
+ *
+ ******************************************************************************/
+
+// LED strip
+const int strip_pin = 0; // The digital pin that drives the LED strip
+const int num_leds = 44; // Number of LEDs in the strip. Shouldn't need changing unless you hack the hardware
+
+const int pot_1 = 0; // Potentiometer pin selects the mode
+
+const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port to a different platform you might need to redefine the ADC precision eg: 1023 for Arduino UNO
+
+
+
+/*******************************************************************************
+ * Global Variables
+ *
+ ******************************************************************************/
 
 // States for the state-machine
 enum statevar {
@@ -41,22 +58,16 @@ enum statevar {
     state_soft
 };
 
-
-// SYSTEM_MODE(SEMI_AUTOMATIC);
-SYSTEM_MODE(AUTOMATIC);
-
-/*
- * Hardware Definitions
- * potentiometers are used as easily reconfigurable controls
- */
-
-const int pot_1 = 0; // Potentiometer pin selects the mode
 uint8_t state; // The state that the user demands
 uint8_t state_current; // The state currently being executed
-Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN);
-uint32_t ledBuffer[PIXEL_COUNT]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
+Adafruit_NeoPixel strip(num_leds, strip_pin);
+uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
 
 
+/*******************************************************************************
+ * SETUP
+ *
+ ******************************************************************************/
 
 void setup()
 {
@@ -65,8 +76,15 @@ void setup()
 }
 
 
+
+/*******************************************************************************
+ * LOOP
+ *
+ ******************************************************************************/
+
 void loop()
 {
+
 
     if (System.buttonPushed() > 1) {
         if( !Particle.connected() ){
@@ -108,14 +126,19 @@ void loop()
 }
 
 
+/*******************************************************************************
+ * Functions
+ *
+ ******************************************************************************/
+
 // Break potentiometer rotation into four sectors for setting mode
 uint8_t getState(int pot){
     float val = analogRead(pot);
-    if (val < ADC_PREC / 4) {
+    if (val < ADC_precision / 4) {
         return state_off;
-    } else if (val < ADC_PREC / 2) {
+    } else if (val < ADC_precision / 2) {
         return state_rainbow;
-    } else if (val < 3*ADC_PREC / 4) {
+    } else if (val < 3*ADC_precision / 4) {
         return state_comet;
     } else {
         return state_solid;
@@ -126,7 +149,7 @@ uint8_t getState(int pot){
 // Convert an ADC reading into a 0-100ms delay
 int getDelay(int pot){
     float potVal = analogRead(pot);
-    return map(potVal,0,ADC_PREC,100,0);
+    return map(potVal,0,ADC_precision,100,0);
 }
 
 
@@ -247,8 +270,8 @@ uint32_t Wheel(byte WheelPos) {
 // Display a single solid colour from the Wheel(), or show white with variable brightness
 int solid(int colour, int bright){
     state_current = state_solid;
-    bright = map(bright,0,ADC_PREC,5,255);
-    int col = map(colour,0,ADC_PREC,0,255);
+    bright = map(bright,0,ADC_precision,5,255);
+    int col = map(colour,0,ADC_precision,0,255);
     uint16_t i;
 
     if (col > 245) {
@@ -291,8 +314,9 @@ void setPixel(int ledIndex, uint32_t colour){
 
 // Wrapper for safe pixel updating
 void update(){
-  const float iLim = 0.87; // [A] Current limit (0.9A)
-  const float FSDcurrentCorrection = 0.8824;
+  // const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
+  const float iLim = 0.35; // [A] Current limit for PC USB port
+  const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
   uint8_t R; uint8_t G; uint8_t B;
@@ -300,7 +324,6 @@ void update(){
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
     // Separate the 32bit colour into 8bit R,G,B and add
-
     B = ledBuffer[i] & 0xFF;
     G = (ledBuffer[i] >> 8) & 0xFF;
     R = (ledBuffer[i] >> 16) & 0xFF;
