@@ -1,9 +1,9 @@
 /*
- * v1.0
+ * v1.1
  *
- * This program drives the Core Electronics Infinity-Mirror Kit
+ * This program drives the Core Electronics Desktop Infinity Mirror Kit
  * Powered by Core Electronics
- * August 2017
+ * 2017
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
