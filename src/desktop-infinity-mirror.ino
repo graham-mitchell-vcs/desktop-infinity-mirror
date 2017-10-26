@@ -61,7 +61,8 @@ enum statevar {
 
 uint8_t state; // The state that the user demands
 uint8_t state_current; // The state currently being executed
-Adafruit_NeoPixel strip(num_leds, strip_pin);
+// Adafruit_NeoPixel strip(num_leds, strip_pin);
+Adafruit_NeoPixel strip(num_leds, strip_pin, WS2812B);
 uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
 
 
@@ -85,7 +86,7 @@ void setup()
 
 void loop()
 {
-  static uint32_t selectedColour = 255;
+  static uint32_t selectedColour = 0xFF00FF;
 
 
     if (System.buttonPushed() > 1) {
@@ -140,14 +141,17 @@ void loop()
 
 // Break potentiometer rotation into four sectors for setting mode
 uint8_t getState(int pot){
-    float val = analogRead(pot);
-    if (val < ADC_precision / 4) {
+  // TODO: find better, more flexible method
+    float val = float(analogRead(pot)) / float(ADC_precision);
+
+    // TODO remove magic numbers
+    if (val < 0.25) {
         return state_off;
-    } else if (val < ADC_precision / 2) {
+    } else if (val < 0.5) {
         return state_rainbow;
-    } else if (val < 3*ADC_precision / 4) {
+    } else if (val < 0.75) {
         return state_comet;
-    } else if (val < 3.5*ADC_precision /4) {
+    } else if (val < 0.95) {
         return state_solid;
     } else {
       return state_scroll;
@@ -241,8 +245,23 @@ void clearStrip(void){
 }
 
 
+// void rainbow() {
+//   state_current = state_rainbow;
+//   int i;
+//   float baseCol;
+//   float colStep = 256.0 / strip.numPixels();
+//
+//   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
+//     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
+//         setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour at the first and last led in the string.
+//     }
+//     update();
+//     delay(50);
+//
+//     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+//   }
+// }
 void rainbow() {
-    state_current = state_rainbow;
 //   uint16_t j;
   float i, baseCol;
   float colStep = 256.0 / strip.numPixels();
@@ -250,16 +269,15 @@ void rainbow() {
   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
         // strip.setPixelColor( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
-        setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour at the first and last led in the string.
+        setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
     }
     // strip.show();
     update();
-    delay(10);
+    delay(50);
 
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot_1) != state_rainbow) break; // Check if mode knob is still on this mode
   }
 }
-
 
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
@@ -285,7 +303,6 @@ void solid(uint32_t colour){
       setPixel(i, colour);
     }
 
-    // strip.show();
     update();
     delay(50);
 }
@@ -295,10 +312,9 @@ uint32_t scroll() {
   static int colPos = 0; // Position in colour wheel
   uint32_t colour = Wheel(colPos++ & 255);
 
-  // for(int i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
-  //     setPixel( i, colour ); // This line seamlessly wraps the colour around the table.
-  // }
+  // Show the colour
   solid(colour);
+
   return colour; // Return the set colour for use in other sequences.
 
 }
@@ -329,23 +345,24 @@ void update(){
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
-  uint8_t R; uint8_t G; uint8_t B;
+  uint8_t R, G, B;
 
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
+    uint32_t temp = ledBuffer[i];
     // Separate the 32bit colour into 8bit R,G,B and add
-    B = ledBuffer[i] & 0xFF;
-    G = (ledBuffer[i] >> 8) & 0xFF;
-    R = (ledBuffer[i] >> 16) & 0xFF;
+    // B = ledBuffer[i] & 0xFF;
+    // G = (ledBuffer[i] >> 8) & 0xFF;
+    // R = (ledBuffer[i] >> 16) & 0xFF;
+    B = temp & 0xFF;
+    G = (temp >> 8) & 0xFF;
+    R = (temp >> 16) & 0xFF;
 
     sum += float(R + G + B) * lsbToAmp; // Add LED[i]'s current
   }
   sum = sum * FSDcurrentCorrection;
   float scale = float(iLim)/float(sum);
-  // DEBUG
-//  Serial.print("Requested: ");
-//  Serial.print(sum);
-//  Serial.println(" A");
+
 
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
