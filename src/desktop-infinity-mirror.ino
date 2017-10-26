@@ -245,22 +245,6 @@ void clearStrip(void){
 }
 
 
-// void rainbow() {
-//   state_current = state_rainbow;
-//   int i;
-//   float baseCol;
-//   float colStep = 256.0 / strip.numPixels();
-//
-//   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
-//     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
-//         setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour at the first and last led in the string.
-//     }
-//     update();
-//     delay(50);
-//
-//     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
-//   }
-// }
 void rainbow() {
 //   uint16_t j;
   float i, baseCol;
@@ -304,7 +288,7 @@ void solid(uint32_t colour){
     }
 
     update();
-    delay(50);
+    delay(25);
 }
 
 // Scroll through the colour wheel for all LEDs. Also allows user to set a desired colour for other modes.
@@ -339,13 +323,15 @@ void setPixel(int ledIndex, uint32_t colour){
 
 // Wrapper for safe pixel updating
 void update(){
-  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
-  // const float iLim = 0.35; // [A] Current limit for PC USB port
+uint8_t R, G, B;
+
+  // const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
+  const float iLim = 0.35; // [A] Current limit for PC USB port
   // const float iLim = 10; // DISABLE current limit
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
-  uint8_t R, G, B;
+
 
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
@@ -366,10 +352,11 @@ void update(){
 
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
+      uint32_t temp = ledBuffer[i];
       // Separate the 32bit colour into 8bit R,G,B and add
-      B = ledBuffer[i] & 0xFF;
-      G = (ledBuffer[i] >> 8) & 0xFF;
-      R = (ledBuffer[i] >> 16) & 0xFF;
+      B = temp & 0xFF;
+      G = (temp >> 8) & 0xFF;
+      R = (temp >> 16) & 0xFF;
 
       R = floor(R * scale);
       G = floor(G * scale);
@@ -379,8 +366,16 @@ void update(){
     }
   } else {
     for(uint8_t i=0; i<strip.numPixels(); i++) {
+      uint32_t temp = ledBuffer[i];
+      // Separate the 32bit colour into 8bit R,G,B and add
+      B = temp & 0xFF;
+      G = (temp >> 8) & 0xFF;
+      R = (temp >> 16) & 0xFF;
+
       strip.setPixelColor(i, R, G, B);
     }
   }
+
+
   strip.show();
 }
