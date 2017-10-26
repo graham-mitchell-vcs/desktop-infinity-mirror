@@ -86,7 +86,7 @@ void setup()
 
 void loop()
 {
-  static uint32_t selectedColour = 0xFF00FF;
+  static uint32_t selectedColour = Wheel(0);
 
 
     if (System.buttonPushed() > 1) {
@@ -115,7 +115,7 @@ void loop()
             break;
 
         case state_comet:
-            demo(); // An under-construction comet demo.
+            demo(selectedColour); // An under-construction comet demo.
             break;
 
         case state_solid:
@@ -150,9 +150,9 @@ uint8_t getState(int pot){
     } else if (val < 0.5) {
         return state_rainbow;
     } else if (val < 0.75) {
-        return state_comet;
-    } else if (val < 0.95) {
         return state_solid;
+    } else if (val < 0.95) {
+      return state_comet;
     } else {
       return state_scroll;
     }
@@ -170,7 +170,7 @@ int getDelay(int pot){
  * This feature is largely experimental and quite incomplete.
  * The idea is to involve multiple comets that can interact by colour-addition
  */
-void demo(void){
+void demo(uint32_t colour){
     state_current = state_comet;
     uint16_t i, j, k;
     uint16_t ofs = 15;
@@ -178,7 +178,7 @@ void demo(void){
     for (j=0; j<strip.numPixels(); j++){
         clearStrip();
 
-        comet(j,1);
+        comet(j,1, colour);
 
         strip.show();
         delay(30);
@@ -197,40 +197,51 @@ void demo(void){
  *      - Handle direction gracefully. In the works but broken.
  *      - Handle multiple comets
  */
-void comet(uint16_t pos, bool dir) {
+void comet(uint16_t pos, bool dir, uint32_t colour) {
     float headBrightness = 255;                 // Brightness of the first LED in the comet
     uint8_t bright = uint8_t(headBrightness);   // Initialise the brightness variable
     uint16_t len = 20;                          // Length of comet tail
     double lambda = 0.3;                        // Parameter that effects how quickly the comet tail dims
     double dim = lambda;                        // initialise exponential decay function
 
-    strip.setPixelColor(pos, strip.Color(0,bright,0)); // Head of the comet
+    //strip.setPixelColor(pos, strip.Color(0,bright,0)); // Head of the comet
 
+    // Extract colour channels
+    uint8_t headB = colour & 0xFF;
+    uint8_t headG = (colour >> 8) & 0xFF;
+    uint8_t headR = (colour >> 16) & 0xFF;
+    uint8_t R = headR;
+    uint8_t G = headG;
+    uint8_t B = headB;
+
+    strip.setPixelColor(pos, colour); // Head of the comet
 
     if(dir) {
         for(uint16_t i=1; i<len; i++){
             // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
             if( pos - i < 0 ){ // Wrapped
-                strip.setPixelColor(strip.numPixels()+pos-i, strip.Color(0,bright,0));
+                strip.setPixelColor(strip.numPixels()+pos-i, strip.Color(R,G,B));
             } else { // Not wrapped
-                strip.setPixelColor(pos-i, strip.Color(0,bright,0));
+                strip.setPixelColor(pos-i, strip.Color(R,G,B));
             }
-            bright = uint8_t(headBrightness * exp(-dim)); // Exponential decay function to dim tail LEDs
+            R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
+            G = uint8_t(headG * exp(-dim));
+            B = uint8_t(headB * exp(-dim));
             dim += lambda;
         }
 
     } else { // Comet is going backwards *** BROKEN: TODO fix ***
-        for(uint16_t i=1; i<len; i++){
-            // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
-            if( pos + i > strip.numPixels() ){ // Wrapped
-                strip.setPixelColor(strip.numPixels()-pos-i, strip.Color(0,bright,0));
-            } else { // Not wrapped
-                strip.setPixelColor(pos+i, strip.Color(0,bright,0));
-            }
-            // Dim the tail of the worm. This probably isn't the best way to do it, but it'll do for now.
-            // TODO: dim while respecting the length of the worm. For long worms this will dim to zero before the end of worm is reached.
-            bright *= 0.75;
-        }
+        // for(uint16_t i=1; i<len; i++){
+        //     // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
+        //     if( pos + i > strip.numPixels() ){ // Wrapped
+        //         strip.setPixelColor(strip.numPixels()-pos-i, strip.Color(0,bright,0));
+        //     } else { // Not wrapped
+        //         strip.setPixelColor(pos+i, strip.Color(0,bright,0));
+        //     }
+        //     // Dim the tail of the worm. This probably isn't the best way to do it, but it'll do for now.
+        //     // TODO: dim while respecting the length of the worm. For long worms this will dim to zero before the end of worm is reached.
+        //     bright *= 0.75;
+        // }
     }
 }
 
@@ -257,7 +268,7 @@ void rainbow() {
     }
     // strip.show();
     update();
-    delay(50);
+    delay(42);
 
     if(getState(pot_1) != state_rainbow) break; // Check if mode knob is still on this mode
   }
@@ -325,8 +336,8 @@ void setPixel(int ledIndex, uint32_t colour){
 void update(){
 uint8_t R, G, B;
 
-  // const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
-  const float iLim = 0.35; // [A] Current limit for PC USB port
+  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
+  // const float iLim = 0.35; // [A] Current limit for PC USB port
   // const float iLim = 10; // DISABLE current limit
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
