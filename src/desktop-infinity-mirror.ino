@@ -24,8 +24,8 @@
 #include <math.h>
 #include <neopixel.h>
 
-// SYSTEM_MODE(SEMI_AUTOMATIC);
-SYSTEM_MODE(AUTOMATIC);
+SYSTEM_MODE(SEMI_AUTOMATIC);
+// SYSTEM_MODE(AUTOMATIC);
 
 
 /*******************************************************************************
@@ -54,8 +54,9 @@ enum statevar {
     state_rainbow,
     state_comet,
     state_solid,
-    state_nightlight,
-    state_soft
+    state_scroll,
+    // state_nightlight,
+    // state_soft
 };
 
 uint8_t state; // The state that the user demands
@@ -84,6 +85,7 @@ void setup()
 
 void loop()
 {
+  static uint32_t selectedColour = 255;
 
 
     if (System.buttonPushed() > 1) {
@@ -116,7 +118,12 @@ void loop()
             break;
 
         case state_solid:
-            solid(opt1, opt2); // Show user-set solid colour.
+            // solid(opt1, opt2); // Show user-set solid colour.
+            solid(selectedColour);
+            break;
+
+        case state_scroll:
+            selectedColour = scroll();
             break;
 
         default:
@@ -140,8 +147,10 @@ uint8_t getState(int pot){
         return state_rainbow;
     } else if (val < 3*ADC_precision / 4) {
         return state_comet;
-    } else {
+    } else if (val < 3.5*ADC_precision /4) {
         return state_solid;
+    } else {
+      return state_scroll;
     }
 }
 
@@ -241,7 +250,7 @@ void rainbow() {
   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
         // strip.setPixelColor( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
-        setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
+        setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour at the first and last led in the string.
     }
     // strip.show();
     update();
@@ -268,31 +277,31 @@ uint32_t Wheel(byte WheelPos) {
 
 
 // Display a single solid colour from the Wheel(), or show white with variable brightness
-int solid(int colour, int bright){
+void solid(uint32_t colour){
     state_current = state_solid;
-    bright = map(bright,0,ADC_precision,5,255);
-    int col = map(colour,0,ADC_precision,0,255);
     uint16_t i;
-
-    if (col > 245) {
-        // Set to white
-        for(i=0; i<strip.numPixels(); i++){
-            strip.setPixelColor(i, strip.Color(bright,bright,bright));
-        }
-
-    } else {
-        // User-defined colour
-        for(i=0; i<strip.numPixels(); i++){
-                // strip.setPixelColor(i, strip.Color(128,128,128)); // half bright white. DO NOT EXCEED
-                setPixel(i, strip.Color(255,255,255)); // protected level
-        }
+    // User-defined colour
+    for(i=0; i<strip.numPixels(); i++){
+      setPixel(i, colour);
     }
+
     // strip.show();
     update();
     delay(50);
 }
 
+// Scroll through the colour wheel for all LEDs. Also allows user to set a desired colour for other modes.
+uint32_t scroll() {
+  static int colPos = 0; // Position in colour wheel
+  uint32_t colour = Wheel(colPos++ & 255);
 
+  // for(int i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
+  //     setPixel( i, colour ); // This line seamlessly wraps the colour around the table.
+  // }
+  solid(colour);
+  return colour; // Return the set colour for use in other sequences.
+
+}
 
 
 
@@ -314,8 +323,9 @@ void setPixel(int ledIndex, uint32_t colour){
 
 // Wrapper for safe pixel updating
 void update(){
-  // const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
-  const float iLim = 0.35; // [A] Current limit for PC USB port
+  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
+  // const float iLim = 0.35; // [A] Current limit for PC USB port
+  // const float iLim = 10; // DISABLE current limit
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
