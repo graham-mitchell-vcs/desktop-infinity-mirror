@@ -173,7 +173,6 @@ void demo(uint32_t colour){
 
         comet(j,1, colour);
 
-        // strip.show();
         update();
         delay(30);
         if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
@@ -198,34 +197,21 @@ void comet(uint16_t pos, bool dir, uint32_t colour) {
     double lambda = 0.3;                        // Parameter that effects how quickly the comet tail dims
     double dim = lambda;                        // initialise exponential decay function
 
-    //strip.setPixelColor(pos, strip.Color(0,bright,0)); // Head of the comet
-
-    // Extract colour channels
-
-    // uint8_t headB = colour & 0xFF;
-    // uint8_t headG = (colour >> 8) & 0xFF;
-    // uint8_t headR = (colour >> 16) & 0xFF;
-    // uint8_t R = headR;
-    // uint8_t G = headG;
-    // uint8_t B = headB;
+    // Get colour of comet head, and prepare variables to use for tail-dimming
     uint8_t headR, headG, headB, R, G, B;
     colourToRGB(colour, &headR, &headG, &headB);
     R = headR;
     G = headG;
     B = headB;
 
-
-    // strip.setPixelColor(pos, colour); // Head of the comet
-    setPixel(pos, colour);
+    setPixel(pos, colour); // Head of comet
 
     if(dir) {
         for(uint16_t i=1; i<len; i++){
             // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
             if( pos - i < 0 ){ // Wrapped
-                // strip.setPixelColor(strip.numPixels()+pos-i, strip.Color(R,G,B));
                 setPixel(strip.numPixels()+pos-i, strip.Color(R,G,B));
             } else { // Not wrapped
-                // strip.setPixelColor(pos-i, strip.Color(R,G,B));
                 setPixel(pos-i, strip.Color(R,G,B));
             }
             R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
@@ -234,7 +220,7 @@ void comet(uint16_t pos, bool dir, uint32_t colour) {
             dim += lambda;
         }
 
-    } else { // Comet is going backwards *** BROKEN: TODO fix ***
+    } else { // Comet is going backwards *** BROKEN: TODO fix, and definitely DON'T use strip.setPixelColor() ***
         // for(uint16_t i=1; i<len; i++){
         //     // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
         //     if( pos + i > strip.numPixels() ){ // Wrapped
