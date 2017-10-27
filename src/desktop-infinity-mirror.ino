@@ -30,17 +30,14 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 
 /*******************************************************************************
  * Hardware Definitions
- *
+ * You won't need to change these
  ******************************************************************************/
 
 // LED strip
 const int strip_pin = 0; // The digital pin that drives the LED strip
 const int num_leds = 44; // Number of LEDs in the strip. Shouldn't need changing unless you hack the hardware
-
 const int pot_1 = 0; // Potentiometer pin selects the mode
-
 const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port to a different platform you might need to redefine the ADC precision eg: 1023 for Arduino UNO
-
 
 
 /*******************************************************************************
@@ -60,10 +57,9 @@ enum statevar {
 
 static uint8_t state; // The state that the user demands
 static uint8_t state_current; // The state currently being executed
-// Adafruit_NeoPixel strip(num_leds, strip_pin);
+
 Adafruit_NeoPixel strip(num_leds, strip_pin, WS2812B);
 static uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
-
 static float userBright = 1.0; // User-set brightness [0 - 1] // TODO roll into LED-strip object
 
 /*******************************************************************************
@@ -88,22 +84,10 @@ void loop()
 {
   static uint32_t userColour = Wheel(0); // User-set colour TODO roll into LED-strip object
 
-
-
-    if (System.buttonPushed() > 1) {
-        if( !Particle.connected() ){
-            Particle.connect();
-        }
-    }
-
+    connectWIFIonButtonPress();
 
     // Read potentiometer values for user-input
     state = getState(pot_1);    // Select the operation mode
-    //int opt1 = analogRead(pot_2);   // Select animation speed
-    //int opt2 = analogRead(pot_3);   // A general-purpose option for other effects
-    int opt1 = 1023;
-    int opt2 = 1023;
-
 
     // State Machine
     switch(state){
@@ -142,6 +126,16 @@ void loop()
  * Functions
  *
  ******************************************************************************/
+
+/*
+  Connect to stored WiFi credentials. Only useful if you have claimed your
+  particle photon to your particle account: https://build.particle.io
+*/
+void connectWIFIonButtonPress() {
+  if (System.buttonPushed() > 1) {
+      if( !Particle.connected() ) Particle.connect();
+  }
+}
 
 // Break potentiometer rotation into four sectors for setting mode
 uint8_t getState(int pot){
@@ -376,7 +370,7 @@ void setPixel(int ledIndex, uint32_t colour){
 // Wrapper for safe pixel updating - prevent user from requesting too much current
 // TODO refactor, retain brightness adjusted calculations through the function to avoid re-computing and improve readability
 void update(){
-uint8_t R, G, B;
+  uint8_t R, G, B;
 
   const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply or 1A capable computer USB port.
   // const float iLim = 0.35; // [A] Current limit for 500mA computer USB port
@@ -388,16 +382,8 @@ uint8_t R, G, B;
 
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
-    uint32_t col = ledBuffer[i];
-    // Separate the 32bit colour into 8bit R,G,B
-    // B = col & 0xFF;
-    // G = (col >> 8) & 0xFF;
-    // R = (col >> 16) & 0xFF;
-    colourToRGB(col, &R, &G, &B);
-    // Scale by user-set brightness
-    // B = userBright * B;
-    // G = userBright * G;
-    // R = userBright * R;
+    // Separate the 32bit colour into 8bit R,G,B then scale to the desired brightness
+    colourToRGB(ledBuffer[i], &R, &G, &B);
     applyBrightness(&R,&G,&B);
 
     sum += float(R + G + B) * lsbToAmp; // Add LED[i]'s current
@@ -408,17 +394,8 @@ uint8_t R, G, B;
 
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
-      uint32_t col = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B
-      // B = col & 0xFF;
-      // G = (col >> 8) & 0xFF;
-      // R = (col >> 16) & 0xFF;
-      colourToRGB(col, &R, &G, &B);
-
-      // Scale by user-set brightness
-      // B = userBright * B;
-      // G = userBright * G;
-      // R = userBright * R;
+      // Separate the 32bit colour into 8bit R,G,B then scale to the desired brightness
+      colourToRGB(ledBuffer[i], &R, &G, &B);
       applyBrightness(&R,&G,&B);
 
       // Scale down to current limit
@@ -430,16 +407,8 @@ uint8_t R, G, B;
     }
   } else {
     for(uint8_t i=0; i<strip.numPixels(); i++) {
-      uint32_t col = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B
-      // B = col & 0xFF;
-      // G = (col >> 8) & 0xFF;
-      // R = (col >> 16) & 0xFF;
-      colourToRGB(col, &R, &G, &B);
-      // Scale by user-set brightness
-      // B = userBright * B;
-      // G = userBright * G;
-      // R = userBright * R;
+      // Separate the 32bit colour into 8bit R,G,B then scale to the desired brightness
+      colourToRGB(ledBuffer[i], &R, &G, &B);
       applyBrightness(&R,&G,&B);
 
       strip.setPixelColor(i, R, G, B);
