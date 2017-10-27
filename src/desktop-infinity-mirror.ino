@@ -351,7 +351,7 @@ void setPixel(int ledIndex, uint32_t colour){
 }
 
 // Wrapper for safe pixel updating - prevent user from requesting too much current
-// TODO refactor
+// TODO refactor, retain brightness adjusted calculations through the function to avoid re-computing and improve readability
 void update(){
 uint8_t R, G, B;
 
@@ -383,16 +383,20 @@ uint8_t R, G, B;
 
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
-      uint32_t temp = ledBuffer[i];
+      uint32_t col = ledBuffer[i];
       // Separate the 32bit colour into 8bit R,G,B
-      B = temp & 0xFF;
-      G = (temp >> 8) & 0xFF;
-      R = (temp >> 16) & 0xFF;
-      // Scale by user-set brightness
-      B = userBright * B;
-      G = userBright * G;
-      R = userBright * R;
+      // B = col & 0xFF;
+      // G = (col >> 8) & 0xFF;
+      // R = (col >> 16) & 0xFF;
+      colourToRGB(col, &R, &G, &B);
 
+      // Scale by user-set brightness
+      // B = userBright * B;
+      // G = userBright * G;
+      // R = userBright * R;
+      applyBrightness(&R,&G,&B);
+
+      // Scale down to current limit
       R = floor(R * scale);
       G = floor(G * scale);
       B = floor(B * scale);
@@ -401,20 +405,35 @@ uint8_t R, G, B;
     }
   } else {
     for(uint8_t i=0; i<strip.numPixels(); i++) {
-      uint32_t temp = ledBuffer[i];
+      uint32_t col = ledBuffer[i];
       // Separate the 32bit colour into 8bit R,G,B
-      B = temp & 0xFF;
-      G = (temp >> 8) & 0xFF;
-      R = (temp >> 16) & 0xFF;
+      // B = col & 0xFF;
+      // G = (col >> 8) & 0xFF;
+      // R = (col >> 16) & 0xFF;
+      colourToRGB(col, &R, &G, &B);
       // Scale by user-set brightness
-      B = userBright * B;
-      G = userBright * G;
-      R = userBright * R;
+      // B = userBright * B;
+      // G = userBright * G;
+      // R = userBright * R;
+      applyBrightness(&R,&G,&B);
 
       strip.setPixelColor(i, R, G, B);
     }
   }
 
-
   strip.show();
+}
+
+// INPUT:32-bit colour and OUTPUT: 8-bit R,G,B
+void colourToRGB(uint32_t col, uint8_t *R, uint8_t *G, uint8_t *B) {
+  *B = col & 0xFF;
+  *G = (col >> 8) & 0xFF;
+  *R = (col >> 16) & 0xFF;
+}
+
+// Scale the demanded colour by the user set brightness 0-100%
+void applyBrightness(uint8_t *R, uint8_t *G, uint8_t *B) {
+  *B = userBright * *B;
+  *G = userBright * *G;
+  *R = userBright * *R;
 }
