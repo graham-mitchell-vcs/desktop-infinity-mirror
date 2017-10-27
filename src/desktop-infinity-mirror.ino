@@ -52,19 +52,19 @@ const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port 
 enum statevar {
     state_off,
     state_rainbow,
+    state_brightness,
     state_comet,
     state_solid,
     state_scroll,
-    // state_nightlight,
-    // state_soft
 };
 
-uint8_t state; // The state that the user demands
-uint8_t state_current; // The state currently being executed
+static uint8_t state; // The state that the user demands
+static uint8_t state_current; // The state currently being executed
 // Adafruit_NeoPixel strip(num_leds, strip_pin);
 Adafruit_NeoPixel strip(num_leds, strip_pin, WS2812B);
-uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
+static uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
 
+static float userBright = 1.0; // User-set brightness [0 - 1] // TODO roll into LED-strip object
 
 /*******************************************************************************
  * SETUP
@@ -86,7 +86,8 @@ void setup()
 
 void loop()
 {
-  static uint32_t selectedColour = Wheel(0);
+  static uint32_t userColour = Wheel(0); // User-set colour TODO roll into LED-strip object
+
 
 
     if (System.buttonPushed() > 1) {
@@ -114,17 +115,20 @@ void loop()
             rainbow(); // Adafruit's rainbow demo, modified for seamless wraparound. We are passing the Pot # instead of the option because delay value needs to be updated WITHIN the rainbow function. Not just at the start of each main loop.
             break;
 
+        case state_brightness:
+          brightness(userColour);
+          break;
+
         case state_comet:
-            demo(selectedColour); // An under-construction comet demo.
+            demo(userColour); // An under-construction comet demo.
             break;
 
         case state_solid:
-            // solid(opt1, opt2); // Show user-set solid colour.
-            solid(selectedColour);
+            solid(userColour);
             break;
 
         case state_scroll:
-            selectedColour = scroll();
+            userColour = scroll();
             break;
 
         default:
@@ -141,14 +145,16 @@ void loop()
 
 // Break potentiometer rotation into four sectors for setting mode
 uint8_t getState(int pot){
-  // TODO: find better, more flexible method
+  // TODO: find better, more flexible method of defining pot sectors?
     float val = float(analogRead(pot)) / float(ADC_precision);
 
     // TODO remove magic numbers
-    if (val < 0.25) {
+    if (val < 0.05) {
         return state_off;
-    } else if (val < 0.5) {
+    } else if (val < 0.25) {
         return state_rainbow;
+    }else if (val < 0.5) {
+      return state_brightness;
     } else if (val < 0.75) {
         return state_solid;
     } else if (val < 0.95) {
@@ -156,13 +162,6 @@ uint8_t getState(int pot){
     } else {
       return state_scroll;
     }
-}
-
-
-// Convert an ADC reading into a 0-100ms delay
-int getDelay(int pot){
-    float potVal = analogRead(pot);
-    return map(potVal,0,ADC_precision,100,0);
 }
 
 
@@ -291,7 +290,7 @@ uint32_t Wheel(byte WheelPos) {
 
 // Display a single solid colour from the Wheel(), or show white with variable brightness
 void solid(uint32_t colour){
-    state_current = state_solid;
+    // Do not set state_current here.
     uint16_t i;
     // User-defined colour
     for(i=0; i<strip.numPixels(); i++){
@@ -314,7 +313,26 @@ uint32_t scroll() {
 
 }
 
+// Fade the brightness up <-> down and update a brightness parameter for other modes.
+void brightness(uint32_t col) {
+  state_current = state_brightness;
+  // glow on to max
+  for ( userBright; userBright < 1.0; userBright += 0.05 ){
+    solid(col);
+    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+  }
+  // hold at max for a moment
+  for (int i = 0; i < 1000; i++) {
+    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+  }
 
+  // glow down to min
+  for ( userBright; userBright > 0; userBright -= 0.05 ){
+    solid(col);
+    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+  }
+
+}
 
 
 
@@ -332,13 +350,14 @@ void setPixel(int ledIndex, uint32_t colour){
   ledBuffer[ledIndex] = colour;
 }
 
-// Wrapper for safe pixel updating
+// Wrapper for safe pixel updating - prevent user from requesting too much current
+// TODO refactor
 void update(){
 uint8_t R, G, B;
 
-  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
-  // const float iLim = 0.35; // [A] Current limit for PC USB port
-  // const float iLim = 10; // DISABLE current limit
+  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply or 1A capable computer USB port.
+  // const float iLim = 0.35; // [A] Current limit for 500mA computer USB port
+  // const float iLim = 10; // DANGER effectively DISABLE current limiting.
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
@@ -347,13 +366,14 @@ uint8_t R, G, B;
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
     uint32_t temp = ledBuffer[i];
-    // Separate the 32bit colour into 8bit R,G,B and add
-    // B = ledBuffer[i] & 0xFF;
-    // G = (ledBuffer[i] >> 8) & 0xFF;
-    // R = (ledBuffer[i] >> 16) & 0xFF;
+    // Separate the 32bit colour into 8bit R,G,B
     B = temp & 0xFF;
     G = (temp >> 8) & 0xFF;
     R = (temp >> 16) & 0xFF;
+    // Scale by user-set brightness
+    B = userBright * B;
+    G = userBright * G;
+    R = userBright * R;
 
     sum += float(R + G + B) * lsbToAmp; // Add LED[i]'s current
   }
@@ -364,10 +384,14 @@ uint8_t R, G, B;
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
       uint32_t temp = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B and add
+      // Separate the 32bit colour into 8bit R,G,B
       B = temp & 0xFF;
       G = (temp >> 8) & 0xFF;
       R = (temp >> 16) & 0xFF;
+      // Scale by user-set brightness
+      B = userBright * B;
+      G = userBright * G;
+      R = userBright * R;
 
       R = floor(R * scale);
       G = floor(G * scale);
@@ -378,10 +402,14 @@ uint8_t R, G, B;
   } else {
     for(uint8_t i=0; i<strip.numPixels(); i++) {
       uint32_t temp = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B and add
+      // Separate the 32bit colour into 8bit R,G,B
       B = temp & 0xFF;
       G = (temp >> 8) & 0xFF;
       R = (temp >> 16) & 0xFF;
+      // Scale by user-set brightness
+      B = userBright * B;
+      G = userBright * G;
+      R = userBright * R;
 
       strip.setPixelColor(i, R, G, B);
     }
