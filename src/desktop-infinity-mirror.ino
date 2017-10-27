@@ -350,13 +350,14 @@ void setPixel(int ledIndex, uint32_t colour){
   ledBuffer[ledIndex] = colour;
 }
 
-// Wrapper for safe pixel updating
+// Wrapper for safe pixel updating - prevent user from requesting too much current
+// TODO refactor
 void update(){
 uint8_t R, G, B;
 
-  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply
-  // const float iLim = 0.35; // [A] Current limit for PC USB port
-  // const float iLim = 10; // DISABLE current limit
+  const float iLim = 0.87; // [A] Current limit (0.9A) for external power supply or 1A capable computer USB port.
+  // const float iLim = 0.35; // [A] Current limit for 500mA computer USB port
+  // const float iLim = 10; // DANGER effectively DISABLE current limiting.
   const float FSDcurrentCorrection = 0.8824; // "Full-scale deflection" correction. The LED response is nonlinear i.e. Amp/LeastSignificantBit is not a constant. This is an attempt to allow the user to specify maximum current as a real value.
   float lsbToAmp = 5.06e-5; // [LSB/Ampere] the relationship between an LED setting and current
   float sum = 0; // Initial sum of currents
@@ -365,13 +366,14 @@ uint8_t R, G, B;
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
     uint32_t temp = ledBuffer[i];
-    // Separate the 32bit colour into 8bit R,G,B and add
-    // B = ledBuffer[i] & 0xFF;
-    // G = (ledBuffer[i] >> 8) & 0xFF;
-    // R = (ledBuffer[i] >> 16) & 0xFF;
+    // Separate the 32bit colour into 8bit R,G,B
     B = temp & 0xFF;
     G = (temp >> 8) & 0xFF;
     R = (temp >> 16) & 0xFF;
+    // Scale by user-set brightness
+    B = userBright * B;
+    G = userBright * G;
+    R = userBright * R;
 
     sum += float(R + G + B) * lsbToAmp; // Add LED[i]'s current
   }
@@ -382,10 +384,14 @@ uint8_t R, G, B;
   if ( sum > iLim ) { // Too much current requested
     for(uint8_t i=0; i<strip.numPixels(); i++) {
       uint32_t temp = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B and add
+      // Separate the 32bit colour into 8bit R,G,B
       B = temp & 0xFF;
       G = (temp >> 8) & 0xFF;
       R = (temp >> 16) & 0xFF;
+      // Scale by user-set brightness
+      B = userBright * B;
+      G = userBright * G;
+      R = userBright * R;
 
       R = floor(R * scale);
       G = floor(G * scale);
@@ -396,10 +402,14 @@ uint8_t R, G, B;
   } else {
     for(uint8_t i=0; i<strip.numPixels(); i++) {
       uint32_t temp = ledBuffer[i];
-      // Separate the 32bit colour into 8bit R,G,B and add
+      // Separate the 32bit colour into 8bit R,G,B
       B = temp & 0xFF;
       G = (temp >> 8) & 0xFF;
       R = (temp >> 16) & 0xFF;
+      // Scale by user-set brightness
+      B = userBright * B;
+      G = userBright * G;
+      R = userBright * R;
 
       strip.setPixelColor(i, R, G, B);
     }
