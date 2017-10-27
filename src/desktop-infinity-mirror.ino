@@ -137,7 +137,7 @@ void connectWIFIonButtonPress() {
   }
 }
 
-// Break potentiometer rotation into four sectors for setting mode
+// Break potentiometer rotation into sectors for setting mode
 uint8_t getState(int pot){
   // TODO: find better, more flexible method of defining pot sectors?
     float val = float(analogRead(pot)) / float(ADC_precision);
