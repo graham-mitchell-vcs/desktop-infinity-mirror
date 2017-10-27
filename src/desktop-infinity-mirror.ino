@@ -304,14 +304,21 @@ uint32_t scroll() {
 
 }
 
+
 // Fade the brightness up <-> down and update a brightness parameter for other modes.
 void brightness(uint32_t col) {
   state_current = state_brightness;
+
+  const float maxBright = 1.0; // Leave this as 1. Taking it above 1 won't make things brighter.
+  const float minBright = 0.025; // must be strictly greater than zero
+
   // glow on to max
-  for ( userBright; userBright < 1.0; userBright += 0.05 ){
+  for ( userBright; userBright < maxBright; userBright += 0.05*userBright ){
     solid(col);
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
   }
+  userBright = min(userBright, maxBright); // Prevent overshooting 1.0, which results in spuriouos behaviour.
+
   // hold at max for a moment
   for (int i = 0; i < 20; i++) {
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
@@ -319,10 +326,11 @@ void brightness(uint32_t col) {
   }
 
   // glow down to min
-  for ( userBright; userBright > 0; userBright -= 0.05 ){
+  for ( userBright; userBright > minBright; userBright -= 0.05*userBright ){
     solid(col);
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
   }
+  userBright = max(minBright, userBright); // Prevent dead-locking at zero
 
 }
 
