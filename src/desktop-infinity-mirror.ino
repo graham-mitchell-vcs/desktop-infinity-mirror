@@ -154,13 +154,13 @@ uint8_t getState(int pot){
     } else if (val < 0.25) {
         return state_rainbow;
     }else if (val < 0.5) {
-      return state_brightness;
-    } else if (val < 0.75) {
-        return state_solid;
-    } else if (val < 0.95) {
-      return state_comet;
-    } else {
       return state_scroll;
+    } else if (val < 0.75) {
+        return state_comet;
+    } else if (val < 0.95) {
+      return state_solid;
+    } else {
+      return state_brightness;
     }
 }
 
@@ -298,7 +298,7 @@ void solid(uint32_t colour){
     }
 
     update();
-    delay(25);
+    delay(50);
 }
 
 // Scroll through the colour wheel for all LEDs. Also allows user to set a desired colour for other modes.
@@ -322,8 +322,9 @@ void brightness(uint32_t col) {
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
   }
   // hold at max for a moment
-  for (int i = 0; i < 1000; i++) {
+  for (int i = 0; i < 20; i++) {
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    solid(col);
   }
 
   // glow down to min
@@ -334,6 +335,28 @@ void brightness(uint32_t col) {
 
 }
 
+
+
+
+
+
+/***************************************************************************************************
+
+   8888888b.                                                   8888888888P
+   888  "Y88b                                                        d88P
+   888    888                                                       d88P
+   888    888  8888b.  88888b.   .d88b.   .d88b.  888d888          d88P    .d88b.  88888b.   .d88b.
+   888    888     "88b 888 "88b d88P"88b d8P  Y8b 888P"           d88P    d88""88b 888 "88b d8P  Y8b
+   888    888 .d888888 888  888 888  888 88888888 888            d88P     888  888 888  888 88888888
+   888  .d88P 888  888 888  888 Y88b 888 Y8b.     888           d88P      Y88..88P 888  888 Y8b.
+   8888888P"  "Y888888 888  888  "Y88888  "Y8888  888          d8888888888 "Y88P"  888  888  "Y8888
+                                     888
+                                Y8b d88P
+                                 "Y88P"
+
+
+Changing the code below this line could REALLY DAMAGE your Infinity Mirror.
+***************************************************************************************************/
 
 
 /**
@@ -365,15 +388,17 @@ uint8_t R, G, B;
 
   // Sum the LED currents
   for(uint8_t i=0; i<strip.numPixels(); i++) {
-    uint32_t temp = ledBuffer[i];
+    uint32_t col = ledBuffer[i];
     // Separate the 32bit colour into 8bit R,G,B
-    B = temp & 0xFF;
-    G = (temp >> 8) & 0xFF;
-    R = (temp >> 16) & 0xFF;
+    // B = col & 0xFF;
+    // G = (col >> 8) & 0xFF;
+    // R = (col >> 16) & 0xFF;
+    colourToRGB(col, &R, &G, &B);
     // Scale by user-set brightness
-    B = userBright * B;
-    G = userBright * G;
-    R = userBright * R;
+    // B = userBright * B;
+    // G = userBright * G;
+    // R = userBright * R;
+    applyBrightness(&R,&G,&B);
 
     sum += float(R + G + B) * lsbToAmp; // Add LED[i]'s current
   }
