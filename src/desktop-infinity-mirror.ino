@@ -32,8 +32,6 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
  * Hardware Definitions
  * You won't need to change these
  ******************************************************************************/
-
-// LED strip
 const int strip_pin = 0; // The digital pin that drives the LED strip
 const int num_leds = 44; // Number of LEDs in the strip. Shouldn't need changing unless you hack the hardware
 const int pot_1 = 0; // Potentiometer pin selects the mode
@@ -44,7 +42,6 @@ const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port 
  * Global Variables
  *
  ******************************************************************************/
-
 // States for the state-machine
 enum statevar {
     state_off,
@@ -61,6 +58,7 @@ static uint8_t state_current; // The state currently being executed
 Adafruit_NeoPixel strip(num_leds, strip_pin, WS2812B);
 static uint32_t ledBuffer[num_leds]; // Buffer for storing (and then scaling if necessary) LED R,G,B values.
 static float userBright = 1.0; // User-set brightness [0 - 1] // TODO roll into LED-strip object
+
 
 /*******************************************************************************
  * SETUP
@@ -79,7 +77,6 @@ void setup()
  * LOOP
  *
  ******************************************************************************/
-
 void loop()
 {
   static uint32_t userColour = Wheel(0); // User-set colour TODO roll into LED-strip object
@@ -126,11 +123,10 @@ void loop()
  * Functions
  *
  ******************************************************************************/
-
 /*
-  Connect to stored WiFi credentials. Only useful if you have claimed your
-  particle photon to your particle account: https://build.particle.io
-*/
+ *  Connect to stored WiFi credentials. Only useful if you have claimed your
+ *  particle photon to your particle account: https://build.particle.io
+ */
 void connectWIFIonButtonPress() {
   if (System.buttonPushed() > 1) {
       if( !Particle.connected() ) Particle.connect();
