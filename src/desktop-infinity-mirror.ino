@@ -296,7 +296,7 @@ void brightness(uint32_t col) {
   state_current = state_brightness;
 
   const float maxBright = 1.0; // Leave this as 1. Taking it above 1 won't make things brighter.
-  const float minBright = 0.025; // must be strictly greater than zero
+  const float minBright = 0.01; // must be strictly greater than zero
 
   // glow on to max
   for ( userBright; userBright < maxBright; userBright += 0.05*userBright ){
@@ -316,11 +316,16 @@ void brightness(uint32_t col) {
     solid(col);
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
   }
-  userBright = max(minBright, userBright); // Prevent dead-locking at zero
+  userBright = max(minBright, userBright); // Prevent undershoot
+  userBright = max(userBright, 0); // Prevent dead-locking at zero, just in case user ignored minBright requirements
+
+  // hold at min for a moment
+  for (int i = 0; i < 20; i++) {
+    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    solid(col);
+  }
 
 }
-
-
 
 
 
@@ -335,9 +340,9 @@ void brightness(uint32_t col) {
 888    888 .d888888 888  888 888  888 88888888 888            d88P     888  888 888  888 88888888
 888  .d88P 888  888 888  888 Y88b 888 Y8b.     888           d88P      Y88..88P 888  888 Y8b.
 8888888P"  "Y888888 888  888  "Y88888  "Y8888  888          d8888888888 "Y88P"  888  888  "Y8888
-888
-Y8b d88P
-"Y88P"
+                                  888
+                            Y8b d88P
+                            "Y88P"
 
 
 Changing the code below this line could REALLY DAMAGE your Infinity Mirror.
