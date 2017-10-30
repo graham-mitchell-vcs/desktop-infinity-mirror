@@ -1,24 +1,22 @@
 /*
- * v1.1
- *
- * This program drives the Core Electronics Desktop Infinity Mirror Kit
- * Powered by Core Electronics
- * 2017
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+* This program drives the Core Electronics Desktop Infinity Mirror Kit
+* Powered by Core Electronics
+* 2017
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*
+*/
 
 #include "Particle.h"
 #include <math.h>
@@ -29,9 +27,9 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 
 
 /*******************************************************************************
- * Hardware Definitions
- * You won't need to change these
- ******************************************************************************/
+* Hardware Definitions
+* You won't need to change these
+******************************************************************************/
 const int strip_pin = 0; // The digital pin that drives the LED strip
 const int num_leds = 44; // Number of LEDs in the strip. Shouldn't need changing unless you hack the hardware
 const int pot_1 = 0; // Potentiometer pin selects the mode
@@ -39,17 +37,17 @@ const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port 
 
 
 /*******************************************************************************
- * Global Variables
- *
- ******************************************************************************/
+* Global Variables
+*
+******************************************************************************/
 // States for the state-machine
 enum statevar {
-    state_off,
-    state_rainbow,
-    state_brightness,
-    state_comet,
-    state_solid,
-    state_scroll,
+  state_off,
+  state_rainbow,
+  state_brightness,
+  state_comet,
+  state_solid,
+  state_scroll,
 };
 
 static uint8_t state; // The state that the user demands
@@ -61,196 +59,187 @@ static float userBright = 1.0; // User-set brightness [0 - 1] // TODO roll into 
 
 
 /*******************************************************************************
- * SETUP
- *
- ******************************************************************************/
+* SETUP
+*
+******************************************************************************/
 
 void setup()
 {
-    strip.begin();
-    strip.show(); // Initialize all pixels to off
+  strip.begin();
+  update(); // Initialize all pixels to off
 }
 
 
 
 /*******************************************************************************
- * LOOP
- *
- ******************************************************************************/
+* LOOP
+*
+******************************************************************************/
 void loop()
 {
   static uint32_t userColour = Wheel(0); // User-set colour TODO roll into LED-strip object
 
-    connectWIFIonButtonPress();
+  connectWIFIonButtonPress();
 
-    // Read potentiometer values for user-input
-    state = getState(pot_1);    // Select the operation mode
+  // Read potentiometer values for user-input
+  state = getState(pot_1);    // Select the operation mode
 
-    // State Machine
-    switch(state){
-        case state_off:
-            clearStrip();   // "Off" state.
-            break;
+  // State Machine.
+  switch(state){
+    case state_off:
+    clearStrip();   // "Off" state.
+    delay(50);
+    break;
 
-        case state_rainbow:
-            rainbow(); // Adafruit's rainbow demo, modified for seamless wraparound. We are passing the Pot # instead of the option because delay value needs to be updated WITHIN the rainbow function. Not just at the start of each main loop.
-            break;
+    case state_rainbow:
+    rainbow(); // Adafruit's rainbow demo, modified for seamless wraparound. We are passing the Pot # instead of the option because delay value needs to be updated WITHIN the rainbow function. Not just at the start of each main loop.
+    break;
 
-        case state_brightness:
-          brightness(userColour);
-          break;
+    case state_brightness:
+    brightness(userColour);
+    break;
 
-        case state_comet:
-            demo(userColour); // An under-construction comet demo.
-            break;
+    case state_comet:
+    comet(userColour); // An under-construction comet demo.
+    break;
 
-        case state_solid:
-            solid(userColour);
-            break;
+    case state_solid:
+    solid(userColour);
+    break;
 
-        case state_scroll:
-            userColour = scroll();
-            break;
+    case state_scroll:
+    userColour = scroll();
+    break;
 
-        default:
-            break;
+    default: // If getState() returns some unexpected value, this section will execute
+    break;
 
-    }
+  }
 }
 
 
 /*******************************************************************************
- * Functions
- *
- ******************************************************************************/
+* Functions
+*
+******************************************************************************/
 /*
- *  Connect to stored WiFi credentials. Only useful if you have claimed your
- *  particle photon to your particle account: https://build.particle.io
- */
+*  Connect to stored WiFi credentials. Only useful if you have claimed your
+*  particle photon to your particle account: https://build.particle.io
+*/
 void connectWIFIonButtonPress() {
   if (System.buttonPushed() > 1) {
-      if( !Particle.connected() ) Particle.connect();
+    if( !Particle.connected() ) Particle.connect();
   }
 }
 
 // Break potentiometer rotation into sectors for setting mode
+// This is the function that determines the order that settings are available from the user-input pot.
 uint8_t getState(int pot){
-  // TODO: find better, more flexible method of defining pot sectors?
-    float val = float(analogRead(pot)) / float(ADC_precision);
+  // TODO: find better, more flexible method of defining pot sectors? Remove magic number?
+  float val = float(analogRead(pot)) / float(ADC_precision);
 
-    // TODO remove magic numbers
-    if (val < 0.05) {
-        return state_off;
-    } else if (val < 0.25) {
-        return state_rainbow;
-    }else if (val < 0.5) {
-      return state_scroll;
-    } else if (val < 0.75) {
-        return state_comet;
-    } else if (val < 0.95) {
-      return state_solid;
-    } else {
-      return state_brightness;
-    }
+  if (val < 0.05) {
+    return state_off;
+  } else if (val < 0.25) {
+    return state_rainbow;
+  }else if (val < 0.5) {
+    return state_scroll;
+  } else if (val < 0.75) {
+    return state_comet;
+  } else if (val < 0.95) {
+    return state_solid;
+  } else {
+    return state_brightness;
+  }
 }
 
 
 /* Run the comet demo
- * This feature is largely experimental and quite incomplete.
- * The idea is to involve multiple comets that can interact by colour-addition
- */
-void demo(uint32_t colour){
-    state_current = state_comet;
-    uint16_t i, j, k;
-    uint16_t ofs = 15;
+* This feature is largely experimental and quite incomplete.
+* The idea is to involve multiple comets that can interact by colour-addition
+*/
+void comet(uint32_t colour){
+  state_current = state_comet;
+  uint16_t i, j, k;
+  uint16_t ofs = 15;
 
-    for (j=0; j<strip.numPixels(); j++){
-        clearStrip();
+  for (j=0; j<strip.numPixels(); j++){
+    clearStrip();
 
-        comet(j,1, colour);
+    drawComet(j,1, colour);
 
-        update();
-        delay(30);
-        if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
-    }
+    update();
+    delay(30);
+    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+  }
 }
 
 
 /*
- * Draw a comet on the strip and handle wrapping gracefully.
- * Arguments:
- *      - pos: the pixel index of the comet's head
- *      - dir: the direction that the tail should point
- *
- * TODO:
- *      - Handle direction gracefully. In the works but broken.
- *      - Handle multiple comets
- */
-void comet(uint16_t pos, bool dir, uint32_t colour) {
-    float headBrightness = 255;                 // Brightness of the first LED in the comet
-    uint8_t bright = uint8_t(headBrightness);   // Initialise the brightness variable
-    uint16_t len = 20;                          // Length of comet tail
-    double lambda = 0.3;                        // Parameter that effects how quickly the comet tail dims
-    double dim = lambda;                        // initialise exponential decay function
+* Draw a comet on the strip and handle wrapping gracefully.
+* Arguments:
+*      - pos: the pixel index of the comet's head
+*      - dir: the direction that the tail should point
+*
+* TODO:
+*      - Handle direction gracefully. In the works but broken.
+*      - Handle multiple comets
+*/
+void drawComet(uint16_t pos, bool dir, uint32_t colour) {
+  float headBrightness = 255;                 // Brightness of the first LED in the comet
+  uint8_t bright = uint8_t(headBrightness);   // Initialise the brightness variable
+  uint16_t len = 20;                          // Length of comet tail
+  double lambda = 0.3;                        // Parameter that effects how quickly the comet tail dims
+  double dim = lambda;                        // initialise exponential decay function
 
-    // Get colour of comet head, and prepare variables to use for tail-dimming
-    uint8_t headR, headG, headB, R, G, B;
-    colourToRGB(colour, &headR, &headG, &headB);
-    R = headR;
-    G = headG;
-    B = headB;
+  // Get colour of comet head, and prepare variables to use for tail-dimming
+  uint8_t headR, headG, headB, R, G, B;
+  colourToRGB(colour, &headR, &headG, &headB);
+  R = headR;
+  G = headG;
+  B = headB;
 
-    setPixel(pos, colour); // Head of comet
+  setPixel(pos, colour); // Head of comet
 
-    if(dir) {
-        for(uint16_t i=1; i<len; i++){
-            // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
-            if( pos - i < 0 ){ // Wrapped
-                setPixel(strip.numPixels()+pos-i, strip.Color(R,G,B));
-            } else { // Not wrapped
-                setPixel(pos-i, strip.Color(R,G,B));
-            }
-            R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
-            G = uint8_t(headG * exp(-dim));
-            B = uint8_t(headB * exp(-dim));
-            dim += lambda;
-        }
-
-    } else { // Comet is going backwards *** BROKEN: TODO fix, and definitely DON'T use strip.setPixelColor() ***
-        // for(uint16_t i=1; i<len; i++){
-        //     // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
-        //     if( pos + i > strip.numPixels() ){ // Wrapped
-        //         strip.setPixelColor(strip.numPixels()-pos-i, strip.Color(0,bright,0));
-        //     } else { // Not wrapped
-        //         strip.setPixelColor(pos+i, strip.Color(0,bright,0));
-        //     }
-        //     // Dim the tail of the worm. This probably isn't the best way to do it, but it'll do for now.
-        //     // TODO: dim while respecting the length of the worm. For long worms this will dim to zero before the end of worm is reached.
-        //     bright *= 0.75;
-        // }
+  if(dir) {
+    for(uint16_t i=1; i<len; i++){
+      // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
+      if( pos - i < 0 ){ // Wrapped
+        setPixel(strip.numPixels()+pos-i, strip.Color(R,G,B));
+      } else { // Not wrapped
+        setPixel(pos-i, strip.Color(R,G,B));
+      }
+      R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
+      G = uint8_t(headG * exp(-dim));
+      B = uint8_t(headB * exp(-dim));
+      dim += lambda;
     }
-}
 
-
-void clearStrip(void){
-    uint16_t i;
-    for(i=0; i<strip.numPixels(); i++){
-            strip.setPixelColor(i, strip.Color(0,0,0));
-        }
-        strip.show();
-        delay(1);
+  } else { // Comet is going backwards *** BROKEN: TODO fix, and definitely DON'T use strip.setPixelColor() ***
+  // for(uint16_t i=1; i<len; i++){
+  //     // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
+  //     if( pos + i > strip.numPixels() ){ // Wrapped
+  //         strip.setPixelColor(strip.numPixels()-pos-i, strip.Color(0,bright,0));
+  //     } else { // Not wrapped
+  //         strip.setPixelColor(pos+i, strip.Color(0,bright,0));
+  //     }
+  //     // Dim the tail of the worm. This probably isn't the best way to do it, but it'll do for now.
+  //     // TODO: dim while respecting the length of the worm. For long worms this will dim to zero before the end of worm is reached.
+  //     bright *= 0.75;
+  // }
+  }
 }
 
 
 void rainbow() {
-//   uint16_t j;
+  //   uint16_t j;
   float i, baseCol;
   float colStep = 256.0 / strip.numPixels();
 
   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
-        // strip.setPixelColor( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
-        setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
+      // strip.setPixelColor( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
+      setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
     }
     // strip.show();
     update();
@@ -264,28 +253,29 @@ void rainbow() {
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
-   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+    return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+    WheelPos -= 85;
+    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   } else {
-   WheelPos -= 170;
-   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+    WheelPos -= 170;
+    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
 
-// Display a single solid colour from the Wheel(), or show white with variable brightness
+// Display a single colour on all LEDs. While accessible from the state machine, this function does not set/check
+// the state variables, because it is called by other states.
 void solid(uint32_t colour){
-    // Do not set state_current here.
-    uint16_t i;
-    // User-defined colour
-    for(i=0; i<strip.numPixels(); i++){
-      setPixel(i, colour);
-    }
+  // Do not set state_current here.
+  uint16_t i;
+  // User-defined colour
+  for(i=0; i<strip.numPixels(); i++){
+    setPixel(i, colour);
+  }
 
-    update();
-    delay(50);
+  update();
+  delay(50);
 }
 
 // Scroll through the colour wheel for all LEDs. Also allows user to set a desired colour for other modes.
@@ -313,7 +303,7 @@ void brightness(uint32_t col) {
     solid(col);
     if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
   }
-  userBright = min(userBright, maxBright); // Prevent overshooting 1.0, which results in spuriouos behaviour.
+  userBright = min(userBright, maxBright); // Prevent overshooting 1.0
 
   // hold at max for a moment
   for (int i = 0; i < 20; i++) {
@@ -337,17 +327,17 @@ void brightness(uint32_t col) {
 
 /***************************************************************************************************
 
-   8888888b.                                                   8888888888P
-   888  "Y88b                                                        d88P
-   888    888                                                       d88P
-   888    888  8888b.  88888b.   .d88b.   .d88b.  888d888          d88P    .d88b.  88888b.   .d88b.
-   888    888     "88b 888 "88b d88P"88b d8P  Y8b 888P"           d88P    d88""88b 888 "88b d8P  Y8b
-   888    888 .d888888 888  888 888  888 88888888 888            d88P     888  888 888  888 88888888
-   888  .d88P 888  888 888  888 Y88b 888 Y8b.     888           d88P      Y88..88P 888  888 Y8b.
-   8888888P"  "Y888888 888  888  "Y88888  "Y8888  888          d8888888888 "Y88P"  888  888  "Y8888
-                                     888
-                                Y8b d88P
-                                 "Y88P"
+8888888b.                                                   8888888888P
+888  "Y88b                                                        d88P
+888    888                                                       d88P
+888    888  8888b.  88888b.   .d88b.   .d88b.  888d888          d88P    .d88b.  88888b.   .d88b.
+888    888     "88b 888 "88b d88P"88b d8P  Y8b 888P"           d88P    d88""88b 888 "88b d8P  Y8b
+888    888 .d888888 888  888 888  888 88888888 888            d88P     888  888 888  888 88888888
+888  .d88P 888  888 888  888 Y88b 888 Y8b.     888           d88P      Y88..88P 888  888 Y8b.
+8888888P"  "Y888888 888  888  "Y88888  "Y8888  888          d8888888888 "Y88P"  888  888  "Y8888
+888
+Y8b d88P
+"Y88P"
 
 
 Changing the code below this line could REALLY DAMAGE your Infinity Mirror.
@@ -355,15 +345,15 @@ Changing the code below this line could REALLY DAMAGE your Infinity Mirror.
 
 
 /**
- * Current-Limiting code
- * As it stands, if the user manually drives the LED strip, there exists the ability to drive the strip to ~1.5 A.
- * The LED strip is powered from the Vin pin, which can supply only 1.0 A.
- * The following code serves as wrappers around Adafruit's NeoPixel function calls that scales the LED values used
- * to come in under this current limit.
- *
- */
+* Current-Limiting code
+* As it stands, if the user manually drives the LED strip, there exists the ability to drive the strip to ~1.5 A.
+* The LED strip is powered from the Vin pin, which can supply only 1.0 A.
+* The following code serves as wrappers around Adafruit's NeoPixel function calls that scales the user-demanded
+* LED values if they would result in LEDs drawing too much current
+*
+*/
 
-// Wrapper for safe pixel updating
+// Wrapper for LED buffer
 void setPixel(int ledIndex, uint32_t colour){
   ledBuffer[ledIndex] = colour;
 }
@@ -431,4 +421,13 @@ void applyBrightness(uint8_t *R, uint8_t *G, uint8_t *B) {
   *B = userBright * *B;
   *G = userBright * *G;
   *R = userBright * *R;
+}
+
+
+// Clear all leds and update. Clears LED buffer too.
+void clearStrip(void){
+  for(uint8_t i=0; i<strip.numPixels(); i++){
+    setPixel(i, strip.Color(0,0,0));
+  }
+  update();
 }
