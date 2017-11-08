@@ -9,4 +9,4 @@ This is where you can find the most up-to-date code for the [Core Electronics](h
 Navigate to the [code source](src/desktop-infinity-mirror.ino), and copy into a [build.particle.io](https://build.particle.io/build) project. Flash to your claimed Photon.
 
 ### Tutorials
-**Coming Soon** - [link](https://core-electronics.com.au/tutorials/infinity-kit-tutorial.html)
+**Coming Soon** - [link](https://core-electronics.com.au/tutorials/infinity-kit.html)
