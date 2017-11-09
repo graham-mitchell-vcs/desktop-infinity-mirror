@@ -22,8 +22,13 @@
 #include <math.h>
 #include <neopixel.h>
 
+
+/*
+ * AUTOMATIC: Photon must have a valid WiFi network to begin running this code.
+ * SEMI_AUTOMATIC: Photon will run this code immediately, and attempt to connect to a WiFi network only if SETUP button is pressed.
+ */
 SYSTEM_MODE(SEMI_AUTOMATIC);
-// SYSTEM_MODE(AUTOMATIC);
+
 
 
 /*******************************************************************************
@@ -32,7 +37,7 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 ******************************************************************************/
 const int strip_pin = 0; // The digital pin that drives the LED strip
 const int num_leds = 44; // Number of LEDs in the strip. Shouldn't need changing unless you hack the hardware
-const int pot_1 = 0; // Potentiometer pin selects the mode
+const int pot = 0; // Potentiometer pin selects the mode
 const int ADC_precision = 4095; // Particle use 12bit ADCs. If you wish to port to a different platform you might need to redefine the ADC precision eg: 1023 for Arduino UNO
 
 
@@ -82,7 +87,7 @@ void loop()
   connectWIFIonButtonPress();
 
   // Read potentiometer values for user-input
-  state = getState(pot_1);    // Select the operation mode
+  state = getState(pot);    // Select the operation mode
 
   // State Machine.
   switch(state){
@@ -166,26 +171,21 @@ void comet(uint32_t colour){
   for (j=0; j<strip.numPixels(); j++){
     clearStrip();
 
-    drawComet(j,1, colour);
+    drawComet(j, colour);
 
     update();
     delay(30);
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
   }
 }
 
 
 /*
 * Draw a comet on the strip and handle wrapping gracefully.
-* Arguments:
-*      - pos: the pixel index of the comet's head
-*      - dir: the direction that the tail should point
-*
 * TODO:
-*      - Handle direction gracefully. In the works but broken.
 *      - Handle multiple comets
 */
-void drawComet(uint16_t pos, bool dir, uint32_t colour) {
+void drawComet(uint16_t pos, uint32_t colour) {
   float headBrightness = 255;                 // Brightness of the first LED in the comet
   uint8_t bright = uint8_t(headBrightness);   // Initialise the brightness variable
   uint16_t len = 20;                          // Length of comet tail
@@ -201,32 +201,17 @@ void drawComet(uint16_t pos, bool dir, uint32_t colour) {
 
   setPixel(pos, colour); // Head of comet
 
-  if(dir) {
-    for(uint16_t i=1; i<len; i++){
-      // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
-      if( pos - i < 0 ){ // Wrapped
-        setPixel(strip.numPixels()+pos-i, strip.Color(R,G,B));
-      } else { // Not wrapped
-        setPixel(pos-i, strip.Color(R,G,B));
-      }
-      R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
-      G = uint8_t(headG * exp(-dim));
-      B = uint8_t(headB * exp(-dim));
-      dim += lambda;
+  for(uint16_t i=1; i<len; i++){
+    // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
+    if( pos - i < 0 ){ // Wrapped
+      setPixel(strip.numPixels()+pos-i, strip.Color(R,G,B));
+    } else { // Not wrapped
+      setPixel(pos-i, strip.Color(R,G,B));
     }
-
-  } else { // Comet is going backwards *** BROKEN: TODO fix, and definitely DON'T use strip.setPixelColor() ***
-  // for(uint16_t i=1; i<len; i++){
-  //     // Figure out if the current pixel is wrapped across the strip ends or not, light that pixel
-  //     if( pos + i > strip.numPixels() ){ // Wrapped
-  //         strip.setPixelColor(strip.numPixels()-pos-i, strip.Color(0,bright,0));
-  //     } else { // Not wrapped
-  //         strip.setPixelColor(pos+i, strip.Color(0,bright,0));
-  //     }
-  //     // Dim the tail of the worm. This probably isn't the best way to do it, but it'll do for now.
-  //     // TODO: dim while respecting the length of the worm. For long worms this will dim to zero before the end of worm is reached.
-  //     bright *= 0.75;
-  // }
+    R = uint8_t(headR * exp(-dim)); // Exponential decay function to dim tail LEDs
+    G = uint8_t(headG * exp(-dim));
+    B = uint8_t(headB * exp(-dim));
+    dim += lambda;
   }
 }
 
@@ -238,14 +223,12 @@ void rainbow() {
 
   for(baseCol=0; baseCol<256; baseCol++) { // Loop through all colours
     for(i=0; i<strip.numPixels(); i++) {   // Loop through all pixels
-      // strip.setPixelColor( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
       setPixel( i, Wheel(int(i*(colStep)+baseCol) & 255) ); // This line seamlessly wraps the colour around the table.
     }
-    // strip.show();
     update();
     delay(42);
 
-    if(getState(pot_1) != state_rainbow) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_rainbow) break; // Check if mode knob is still on this mode
   }
 }
 
@@ -301,27 +284,27 @@ void brightness(uint32_t col) {
   // glow on to max
   for ( userBright; userBright < maxBright; userBright += 0.05*userBright ){
     solid(col);
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
   }
   userBright = min(userBright, maxBright); // Prevent overshooting 1.0
 
   // hold at max for a moment
   for (int i = 0; i < 20; i++) {
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
     solid(col);
   }
 
   // glow down to min
   for ( userBright; userBright > minBright; userBright -= 0.05*userBright ){
     solid(col);
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
   }
   userBright = max(minBright, userBright); // Prevent undershoot
   userBright = max(userBright, 0); // Prevent dead-locking at zero, just in case user ignored minBright requirements
 
   // hold at min for a moment
   for (int i = 0; i < 20; i++) {
-    if(getState(pot_1) != state_current) break; // Check if mode knob is still on this mode
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
     solid(col);
   }
 
