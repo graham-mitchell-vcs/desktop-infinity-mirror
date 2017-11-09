@@ -1,6 +1,6 @@
 /*
-* This program drives the Core Electronics Desktop Infinity Mirror Kit
-* Powered by Core Electronics
+* This program drives the Core Electronics Infinity Kit
+* http://coreelec.io/infinitykit
 * 2017
 *
 * This program is free software: you can redistribute it and/or modify
