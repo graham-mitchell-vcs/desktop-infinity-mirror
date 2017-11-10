@@ -53,6 +53,7 @@ enum statevar {
   state_comet,
   state_solid,
   state_scroll,
+  state_edge
 };
 
 static uint8_t state; // The state that the user demands
@@ -116,6 +117,10 @@ void loop()
     userColour = scroll();
     break;
 
+    case state_edge:
+    edge(userColour);
+    break;
+
     default: // If getState() returns some unexpected value, this section will execute
     break;
 
@@ -154,9 +159,46 @@ uint8_t getState(int pot){
   } else if (val < 0.95) {
     return state_solid;
   } else {
-    return state_brightness;
+    // return state_brightness;
+    return state_edge;
   }
 }
+
+
+
+/*******************************************************************************
+ * Let's create our own mode!
+ *******************************************************************************/
+void edge(uint32_t colour){
+  state_current = state_edge;
+  int edgeLength = strip.numPixels()/4;
+
+  // grow line along 4 edges
+  for(int i = 0; i < edgeLength; i++){
+    setPixel(i, colour);                // First edge
+    setPixel(i +   edgeLength, colour); // second edge
+    setPixel(i + 2*edgeLength, colour); // third edge
+    setPixel(i + 3*edgeLength, colour); // fourth edge
+    update();
+    delay(50);
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
+  }
+
+  // shrink line along 4 edges
+  for(int i = 0; i < edgeLength; i++){
+    setPixel(i, strip.Color(0,0,0));
+    setPixel(i +   edgeLength, strip.Color(0,0,0));
+    setPixel(i + 2*edgeLength, strip.Color(0,0,0));
+    setPixel(i + 3*edgeLength, strip.Color(0,0,0));
+    update();
+    delay(50);
+    if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
+  }
+
+
+
+}
+
 
 
 /* Run the comet demo
