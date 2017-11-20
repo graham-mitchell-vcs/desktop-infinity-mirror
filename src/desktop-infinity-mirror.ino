@@ -155,12 +155,12 @@ uint8_t getState(int pot){
   }else if (val < 0.5) {
     return state_scroll;
   } else if (val < 0.75) {
-    return state_comet;
+    // return state_comet;
+    return state_edge; // Replace the comet mode with our new mode
   } else if (val < 0.95) {
     return state_solid;
   } else {
-    // return state_brightness;
-    return state_edge;
+    return state_brightness;
   }
 }
 
@@ -194,8 +194,6 @@ void edge(uint32_t colour){
     delay(50);
     if(getState(pot) != state_current) break; // Check if mode knob is still on this mode
   }
-
-
 
 }
 
